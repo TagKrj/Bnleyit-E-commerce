@@ -5,6 +5,8 @@ import verifyEmailTEmplate from '../utils/verifyEmailTemplate.js';
 import generateAccessToken from '../utils/generatedAccessToken.js';
 import generateRefreshToken from '../utils/generatedRefeshToken.js';
 import uploadImageCloudinary from '../utils/uploadimageCloudinary.js';
+import generatedOtp from '../utils/generatedOtp.js';
+import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js';
 
 export async function registerUserControllor(request, response) {
     try {
@@ -235,7 +237,7 @@ export async function updatedUserDetails(request, response) {
             const salt = await bcryptjs.genSalt(10);
             hashPassword = await bcryptjs.hash(password, salt);
         }
-        const updatedUser = await UserModel.findByIdAndUpdate(userId, {
+        const updatedUser = await UserModel.updateOne({ _id: userId }, {
             ...(name && { name: name }),
             ...(email && { email: email }),
             ...(mobile && { mobile: mobile }),
@@ -256,3 +258,113 @@ export async function updatedUserDetails(request, response) {
         });
     }
 }
+
+//forgot password not login
+export async function forgotPasswordControlller(request, response) {
+    try {
+        const { email } = request.body;
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+            return response.status(400).json({
+                message: "Email not available",
+                error: true,
+                success: false
+            });
+        }
+
+        const otp = generatedOtp();
+        const expireTime = Date.now() + 60 * 60 * 1000;
+
+        const update = await UserModel.findByIdAndUpdate(user._id, {
+            forgot_password_otp: otp,
+            forgot_password_expiry: new Date(expireTime).toISOString()
+        })
+
+        await sendEmail({
+            sendTo: email,
+            subject: "Forgot Password OTP",
+            html: forgotPasswordTemplate({
+                name: user.name,
+                otp: otp
+            })
+        });
+
+        return response.json({
+            message: "Check your email for OTP",
+            error: false,
+            success: true,
+            data: {
+                otp,
+                forgot_password_expiry: new Date(expireTime).toISOString()
+            }
+        });
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+    }
+}
+
+//verify forgot password otp
+export async function verifyForgotPasswordOtp(request, response) {
+    try {
+        const { email, otp } = request.body;
+
+        if (!email || !otp) {
+            return response.status(400).json({
+                message: "Provide email and otp",
+                error: true,
+                success: false
+            });
+        }
+
+        const user = await UserModel.findOne({ email });
+
+        if (!user) {
+            return response.status(400).json({
+                message: "Email not available",
+                error: true,
+                success: false
+            });
+        }
+
+        const currentTime = new Date();
+        if (user.forgot_password_expiry < currentTime) {
+            return response.status(400).json({
+                message: "OTP expired, please request a new OTP",
+                error: true,
+                success: false
+            });
+        }
+
+        if (otp !== user.forgot_password_otp) {
+            return response.status(400).json({
+                message: "Invalid OTP",
+                error: true,
+                success: false
+            })
+        }
+
+        // OTP is valid, proceed with password reset
+
+        return response.json({
+            message: "invalid OTP",
+            error: false,
+            success: true,
+
+        });
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+    }
+}
+
+//reset password
+export async function
