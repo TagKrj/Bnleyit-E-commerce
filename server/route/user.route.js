@@ -3,7 +3,7 @@ import { loginController, logoutController, registerUserControllor, updatedUserD
 import auth from '../middleware/auth.js';
 import upload from '../middleware/multer.js';
 
-const userRouter = Router()
+const userRouter = Router();
 
 userRouter.post('/register', registerUserControllor)
 userRouter.post('/verify-email', verifyEmailController);
