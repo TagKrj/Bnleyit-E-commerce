@@ -331,7 +331,7 @@ export async function verifyForgotPasswordOtp(request, response) {
             });
         }
 
-        const currentTime = new Date();
+        const currentTime = new Date().toISOString();
         if (user.forgot_password_expiry < currentTime) {
             return response.status(400).json({
                 message: "OTP expired, please request a new OTP",
@@ -351,7 +351,7 @@ export async function verifyForgotPasswordOtp(request, response) {
         // OTP is valid, proceed with password reset
 
         return response.json({
-            message: "invalid OTP",
+            message: "successfully verified otp",
             error: false,
             success: true,
 
@@ -367,4 +367,51 @@ export async function verifyForgotPasswordOtp(request, response) {
 }
 
 //reset password
-export async function
+export async function resetpassword(request, response) {
+    try {
+        const { email, newPassword, confirmPassword } = request.body;
+        if (!email || !newPassword || !confirmPassword) {
+            return response.status(400).json({
+                message: "Provide email, new password and confirm password",
+            });
+        }
+
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+            return response.status(400).json({
+                message: "Email not available",
+                error: true,
+                success: false
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return response.status(400).json({
+                message: "New password and confirm password do not match",
+                error: true,
+                success: false
+            });
+        }
+
+        const salt = await bcryptjs.genSalt(10);
+        const hashPassword = await bcryptjs.hash(newPassword, salt);
+
+        const update = await UserModel.findOneAndUpdate(user._id, {
+            password: hashPassword,
+        })
+
+        return response.json({
+            message: "Password reset successfully",
+            error: false,
+            success: true,
+        })
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+
+    }
+}
