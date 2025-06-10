@@ -7,6 +7,7 @@ import generateRefreshToken from '../utils/generatedRefeshToken.js';
 import uploadImageCloudinary from '../utils/uploadimageCloudinary.js';
 import generatedOtp from '../utils/generatedOtp.js';
 import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js';
+import jwt from 'jsonwebtoken';
 
 export async function registerUserControllor(request, response) {
     try {
@@ -405,6 +406,58 @@ export async function resetpassword(request, response) {
             error: false,
             success: true,
         })
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+
+    }
+}
+
+//refresh token controller
+
+export async function refreshToken(request, response) {
+    try {
+        const refreshToken = request.cookies.refreshToken || request?.header?.authorization?.split(" ")[1];
+
+        if (!refreshToken) {
+            return response.status(401).json({
+                message: "Invalid refresh token",
+                error: true,
+                success: false
+            });
+        }
+
+        const verifyToken = await jwt.verify(refreshToken, process.env.SECRET_KEY_REFRESH_TOKEN);
+
+        if (!verifyToken) {
+            return response.status(400).json({
+                message: "token is not expired",
+                error: true,
+                success: false
+            });
+        }
+        const userId = verifyToken?._id;
+        const newAccessToken = await generateAccessToken(userId);
+
+        const cookieOptions = {
+            httpOnly: true,
+            secure: true,
+            sameSite: "None",
+        };
+        response.cookie("accessToken", newAccessToken, cookieOptions)
+
+        return response.json({
+            message: "New access token generated",
+            error: false,
+            success: true,
+            data: {
+                accessToken: newAccessToken
+            }
+        });
 
     } catch (error) {
         return response.status(500).json({
